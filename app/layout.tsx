@@ -1,11 +1,11 @@
 import type { Metadata, Viewport } from 'next';
-import { Atkinson_Hyperlegible_Mono, Atkinson_Hyperlegible_Next, Big_Shoulders } from 'next/font/google';
 import 'leaflet/dist/leaflet.css';
 import './globals.css';
 
-const display = Big_Shoulders({ subsets: ['latin'], weight: ['600', '800', '900'], variable: '--font-display' });
-const body = Atkinson_Hyperlegible_Next({ subsets: ['latin'], weight: ['400', '600', '700'], variable: '--font-body' });
-const mono = Atkinson_Hyperlegible_Mono({ subsets: ['latin'], weight: ['500', '700'], variable: '--font-mono' });
+// Fonts load from Google Fonts at runtime rather than through next/font, so the build never
+// depends on downloading font files. Family names match the --font-* tokens in globals.css.
+const FONTS_URL =
+  'https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible+Mono:wght@500;700&family=Atkinson+Hyperlegible+Next:wght@400;600;700&family=Big+Shoulders:wght@600;800;900&display=swap';
 
 export const metadata: Metadata = {
   title: 'Goosehunt',
@@ -27,7 +27,13 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${display.variable} ${body.variable} ${mono.variable}`}>
+    <html lang="en">
+      <head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
+        {/* eslint-disable-next-line @next/next/no-page-custom-font */}
+        <link rel="stylesheet" href={FONTS_URL} />
+      </head>
       <body>{children}</body>
     </html>
   );

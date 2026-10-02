@@ -2,6 +2,8 @@
 
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
+import CourseHero from '@/components/CourseHero';
+import Logo from '@/components/Logo';
 import { api, saveSession } from '@/lib/client';
 import type { JoinResult } from '@/lib/types';
 
@@ -61,13 +63,17 @@ export default function Home() {
 
   return (
     <main className="home">
-      <header className="home__hero">
-        <div className="brand">
-          <span className="brand__dot" aria-hidden />
-          Goosehunt
+      <header className="hero">
+        <div className="hero__map">
+          <CourseHero />
         </div>
-        <h1>Campus manhunt.</h1>
-        <p>Hiders scatter. Every few minutes their phones ping a location to the seekers. Run.</p>
+        <h1 className="hero__title">
+          <Logo size={56} animated />
+          Goosehunt
+        </h1>
+        <p className="hero__lede">
+          Campus manhunt. Hiders scatter, and every few minutes their phones ping a location to the seekers.
+        </p>
       </header>
 
       {error && (
@@ -111,7 +117,7 @@ export default function Home() {
         </button>
       </form>
 
-      <form className="card" onSubmit={host}>
+      <form className="card card--host" onSubmit={host}>
         <h2>Host a game</h2>
         <label className="field">
           <span>Your name</span>

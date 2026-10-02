@@ -36,10 +36,10 @@ const esc = (s: string) =>
   s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
 
 const TONE_COLOR: Record<MarkerTone, string> = {
-  fresh: '#ea6a1f',
-  stale: '#8d877a',
-  caught: '#b9b3a6',
-  self: '#1c1b17',
+  fresh: '#C8177E',
+  stale: '#7E8A80',
+  caught: '#B7BDB4',
+  self: '#15261F',
 };
 
 export default function GameMap({ me, markers, command }: Props) {
@@ -62,7 +62,10 @@ export default function GameMap({ me, markers, command }: Props) {
     meLayer.current = L.layerGroup().addTo(m);
     map.current = m;
     // Containers inside flex layouts can measure 0 on first paint (esp. iOS); re-measure.
-    const t = setTimeout(() => m.invalidateSize(), 200);
+    const t = setTimeout(() => {
+      m.invalidateSize();
+      if (fitted.current) fitAll();
+    }, 200);
     return () => {
       clearTimeout(t);
       m.remove();
@@ -76,7 +79,16 @@ export default function GameMap({ me, markers, command }: Props) {
     const pts: L.LatLngExpression[] = latest.current.markers.map((x) => [x.lat, x.lng]);
     if (latest.current.me) pts.push([latest.current.me.lat, latest.current.me.lng]);
     if (pts.length === 1) m.setView(pts[0], 17);
-    else if (pts.length > 1) m.fitBounds(L.latLngBounds(pts), { padding: [48, 48], maxZoom: 18 });
+    else if (pts.length > 1) {
+      // Keep pins clear of the HUD (top) and the bottom sheet / side panel that overlay the map.
+      const wide = window.innerWidth >= 700;
+      m.fitBounds(L.latLngBounds(pts), {
+        paddingTopLeft: [40, wide ? 60 : 170],
+        // Extra right padding leaves room for the name labels that sit to the right of each pin.
+        paddingBottomRight: wide ? [500, 40] : [140, Math.round(window.innerHeight * 0.46) + 30],
+        maxZoom: 18,
+      });
+    }
   };
 
   useEffect(() => {
@@ -87,7 +99,7 @@ export default function GameMap({ me, markers, command }: Props) {
       const color = TONE_COLOR[mk.tone];
       if (mk.trail.length) {
         const path: L.LatLngExpression[] = [[mk.lat, mk.lng], ...mk.trail.map((p) => [p.lat, p.lng] as L.LatLngTuple)];
-        L.polyline(path, { color, weight: 2, opacity: 0.5, dashArray: '4 6' }).addTo(layer);
+        L.polyline(path, { color, weight: 3, opacity: 0.55, dashArray: '2 7', lineCap: 'round' }).addTo(layer);
         mk.trail.forEach((p, i) =>
           L.circleMarker([p.lat, p.lng], {
             radius: 4,
@@ -127,7 +139,7 @@ export default function GameMap({ me, markers, command }: Props) {
     layer.clearLayers();
     if (!me) return;
     if (me.accuracy < 500) {
-      L.circle([me.lat, me.lng], { radius: me.accuracy, color: '#2f6fd6', weight: 1, opacity: 0.4, fillOpacity: 0.1 }).addTo(
+      L.circle([me.lat, me.lng], { radius: me.accuracy, color: '#2B7BC0', weight: 1, opacity: 0.4, fillOpacity: 0.1 }).addTo(
         layer,
       );
     }

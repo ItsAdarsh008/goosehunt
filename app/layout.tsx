@@ -1,6 +1,11 @@
 import type { Metadata, Viewport } from 'next';
+import { Atkinson_Hyperlegible_Mono, Atkinson_Hyperlegible_Next, Big_Shoulders } from 'next/font/google';
 import 'leaflet/dist/leaflet.css';
 import './globals.css';
+
+const display = Big_Shoulders({ subsets: ['latin'], weight: ['600', '800', '900'], variable: '--font-display' });
+const body = Atkinson_Hyperlegible_Next({ subsets: ['latin'], weight: ['400', '600', '700'], variable: '--font-body' });
+const mono = Atkinson_Hyperlegible_Mono({ subsets: ['latin'], weight: ['500', '700'], variable: '--font-mono' });
 
 export const metadata: Metadata = {
   title: 'Goosehunt',
@@ -17,12 +22,12 @@ export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   viewportFit: 'cover',
-  themeColor: '#f4efe4',
+  themeColor: '#E8EDE3',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="en" className={`${display.variable} ${body.variable} ${mono.variable}`}>
       <body>{children}</body>
     </html>
   );

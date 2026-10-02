@@ -22,6 +22,7 @@ import {
 import { currentSlot, slotStartMs } from '@/lib/slots';
 import type { GameState, JoinResult, PublicPlayer } from '@/lib/types';
 import type { MapCommand, MapMarker } from './GameMap';
+import Logo, { Wordmark } from './Logo';
 import { useGameState, useGeolocation, useNow, useWakeLock, type Fix } from './hooks';
 
 const GameMap = dynamic(() => import('./GameMap'), { ssr: false, loading: () => <div className="map" /> });
@@ -288,8 +289,14 @@ function Lobby(c: Ctx) {
       {c.error && <div className="banner banner--error">{c.error}</div>}
 
       <section className="card card--code">
-        <span className="eyebrow">Game code</span>
-        <div className="bigcode">{g.code}</div>
+        <h2>Share this code</h2>
+        <div className="bigcode" aria-label={g.code}>
+          {g.code.split('').map((ch, i) => (
+            <span key={i} style={{ animationDelay: `${i * 70}ms` }}>
+              {ch}
+            </span>
+          ))}
+        </div>
         <button className="btn btn--dark" onClick={share}>
           Invite players
         </button>
@@ -298,7 +305,7 @@ function Lobby(c: Ctx) {
 
       <section className="card">
         <h2>
-          Players <span className="muted">· {state.players.length}</span>
+          {state.players.length} {state.players.length === 1 ? 'player' : 'players'}
         </h2>
         <ul className="roster">
           {state.players.map((p) => (
@@ -309,7 +316,7 @@ function Lobby(c: Ctx) {
                 {p.isHost && <span className="tag">host</span>}
               </span>
               {me.isHost ? (
-                <span className="seg" role="group" aria-label={`Role for ${p.name}`}>
+                <span className="seg" data-role={p.role} role="group" aria-label={`Role for ${p.name}`}>
                   {(['hider', 'seeker'] as const).map((r) => (
                     <button
                       key={r}
@@ -326,10 +333,20 @@ function Lobby(c: Ctx) {
             </li>
           ))}
         </ul>
-        <p className="muted small">
-          Ping every {g.pingIntervalSeconds / 60} min · head start {g.pingIntervalSeconds / 60} min ·{' '}
-          {g.durationSeconds ? `${g.durationSeconds / 60} min game` : 'no time limit'}
-        </p>
+        <dl className="rules">
+          <div>
+            <dt>Pings every</dt>
+            <dd>{g.pingIntervalSeconds / 60} min</dd>
+          </div>
+          <div>
+            <dt>Head start</dt>
+            <dd>{g.pingIntervalSeconds / 60} min</dd>
+          </div>
+          <div>
+            <dt>Game length</dt>
+            <dd>{g.durationSeconds ? `${g.durationSeconds / 60} min` : 'No limit'}</dd>
+          </div>
+        </dl>
       </section>
 
       <LocationCard {...c} />
@@ -347,10 +364,13 @@ function Lobby(c: Ctx) {
         </div>
       ) : (
         <div className="waiting">
-          <span className="pulse" aria-hidden /> Waiting for the host to start…
-          <div className="muted small">
+          <span className="radar" aria-hidden>
+            <Logo size={44} />
+          </span>
+          <p>Waiting for the host to start.</p>
+          <p className="muted small">
             You’re a <b>{me.role}</b>.
-          </div>
+          </p>
         </div>
       )}
 
@@ -446,7 +466,22 @@ function Play(c: Ctx) {
   const endsAt = g.durationSeconds ? Date.parse(startedAt) + g.durationSeconds * 1000 : null;
   const finalStretch = endsAt !== null && nextPingAt > endsAt;
   const pingLabel = slot === 0 ? (isSeeker ? 'Hiders revealed in' : 'Head start — first ping in') : 'Next ping in';
-  const urgent = !finalStretch && nextPingAt - now < 30_000;
+  const untilPing = nextPingAt - now;
+  const urgent = !finalStretch && untilPing < 30_000;
+  const imminent = !finalStretch && untilPing <= 10_000;
+
+  // Full-screen ping wave whenever a new round starts while the page is open.
+  const [wave, setWave] = useState<number | null>(null);
+  const prevSlot = useRef(slot);
+  useEffect(() => {
+    if (slot > prevSlot.current && slot >= 1) {
+      setWave(slot);
+      const t = setTimeout(() => setWave(null), 2200);
+      prevSlot.current = slot;
+      return () => clearTimeout(t);
+    }
+    prevSlot.current = slot;
+  }, [slot]);
 
   const markers: MapMarker[] = useMemo(() => {
     const out: MapMarker[] = [];
@@ -481,10 +516,30 @@ function Play(c: Ctx) {
           {endsAt && <span className="mono small hud__ends">ends {fmtClock(endsAt - now)}</span>}
         </div>
         <div className={`hud__count ${urgent ? 'hud__count--urgent' : ''}`}>
-          <span className="hud__label">{finalStretch ? 'Final stretch — no more pings' : pingLabel}</span>
-          {!finalStretch && <span className="hud__clock">{fmtClock(nextPingAt - now)}</span>}
+          <span className="hud__label">{finalStretch ? 'Final stretch: no more pings' : pingLabel}</span>
+          {!finalStretch && (
+            // Re-keying each second restarts the tick animation during the last ten seconds.
+            <span key={imminent ? Math.ceil(untilPing / 1000) : 'clock'} className={`hud__clock ${imminent ? 'is-ticking' : ''}`}>
+              {fmtClock(untilPing)}
+            </span>
+          )}
         </div>
+        {!finalStretch && (
+          <div className="hud__bar" aria-hidden>
+            <span style={{ transform: `scaleX(${1 - Math.max(0, untilPing) / (g.pingIntervalSeconds * 1000)})` }} />
+          </div>
+        )}
       </header>
+
+      {wave !== null && (
+        <div className="pingwave" key={wave} aria-live="polite">
+          <span className="pingwave__ring" />
+          <span className="pingwave__ring pingwave__ring--late" />
+          <span className="pingwave__label">
+            {isSeeker ? 'Hiders revealed' : me.caughtAt ? 'Ping round' : 'Pinging your location'}
+          </span>
+        </div>
+      )}
 
       <div className="mapbtns">
         <button className="mapbtn" onClick={() => command('me')} disabled={!geo.fix} aria-label="Center on me">
@@ -514,6 +569,9 @@ function HiderPanel(c: Ctx) {
   if (me.caughtAt) {
     return (
       <div className="caught">
+        <span className="stamp stamp--big" aria-hidden>
+          Caught
+        </span>
         <h2>You’ve been caught.</h2>
         <p className="muted">Your pings have stopped. Stick around — results show when the game ends.</p>
       </div>
@@ -567,7 +625,7 @@ function SeekerPanel(c: Ctx & { onFind: (lat: number, lng: number) => void }) {
   return (
     <>
       <h2 className="sheet__title">
-        Hiders <span className="muted">· {left} left</span>
+        {left} {left === 1 ? 'hider' : 'hiders'} left
       </h2>
       <ul className="hiders">
         {hiders.map((h) => {
@@ -575,6 +633,11 @@ function SeekerPanel(c: Ctx & { onFind: (lat: number, lng: number) => void }) {
           const dist = geo.fix && h.location ? distanceMeters(geo.fix, h.location) : null;
           return (
             <li key={h.id} className={`hider ${h.caughtAt ? 'hider--caught' : ''}`}>
+              {h.caughtAt && (
+                <span className="stamp" aria-hidden>
+                  Caught
+                </span>
+              )}
               <div className="hider__main">
                 <span className="hider__name">{h.name}</span>
                 <span className="hider__meta mono">
@@ -634,7 +697,9 @@ function Results(c: Ctx) {
     <main className="page">
       <TopBar code={g.code} />
       <section className="card card--code">
-        <span className="eyebrow">Game over</span>
+        <span className="results__burst" aria-hidden>
+          <Logo size={64} animated />
+        </span>
         <h1 className="results__title">{headline}</h1>
         {g.startedAt && g.endedAt && (
           <span className="muted mono small">played {fmtClock(Date.parse(g.endedAt) - startMs)}</span>
@@ -675,9 +740,8 @@ function Results(c: Ctx) {
 function TopBar({ code, onLeave }: { code: string; onLeave?: () => void }) {
   return (
     <header className="topbar">
-      <Link href="/" className="brand">
-        <span className="brand__dot" aria-hidden />
-        Goosehunt
+      <Link href="/" className="topbar__home" aria-label="Goosehunt home">
+        <Wordmark />
       </Link>
       <span className="mono small muted">{code}</span>
       {onLeave && (
@@ -690,7 +754,7 @@ function TopBar({ code, onLeave }: { code: string; onLeave?: () => void }) {
 }
 
 function RoleChip({ role }: { role: 'hider' | 'seeker' }) {
-  return <span className={`chip chip--${role}`}>{role}</span>;
+  return <span className={`chip chip--${role}`}>{role === 'hider' ? 'Hider' : 'Seeker'}</span>;
 }
 
 function ConfirmButton({
@@ -745,7 +809,9 @@ function RejoinLink({ code, session }: { code: string; session: Session }) {
 function Splash({ text }: { text: string }) {
   return (
     <main className="splash">
-      <span className="pulse" aria-hidden />
+      <span className="radar" aria-hidden>
+        <Logo size={44} />
+      </span>
       <p>{text}</p>
       <Link href="/" className="muted small">
         Home

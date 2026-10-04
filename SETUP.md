@@ -11,6 +11,22 @@ Everything you need to do by hand to get Goosehunt running on real phones. It ta
 
 Supabase is the only API you have to connect.
 
+## 0. Who does what
+
+Vercel is signed in on a **different account** from the one Claude in Chrome uses, so the work is split. The Vercel Supabase integration is **not** used: it would create the database under the Vercel account and needs that account's browser session.
+
+| Step | Who | Where |
+|---|---|---|
+| Create the Supabase project | **You.** The form needs a database password, and Claude doesn't type passwords. | Supabase (Chrome) |
+| Run `supabase/schema.sql` and check the three tables exist | **Claude in Chrome** | Supabase SQL Editor |
+| Open the page that shows the Project URL and secret key | **Claude in Chrome** | Supabase → Project Settings |
+| Copy the URL and secret key into Vercel's env vars | **You.** Claude never pastes secret keys into forms, and it can't reach your Vercel account. | Vercel (your other account) |
+| Redeploy | **You** | Vercel |
+| Copy the same two values into `.env.local` (optional, for `npm run dev`) | **You** | Your computer |
+| Smoke test the live URL: create a game, join from a second tab, start it | **Claude in Chrome.** The live site is public, so no login is needed. | Your `*.vercel.app` URL |
+
+The code is already on GitHub (`ItsAdarsh008/goosehunt`) and Vercel is already importing it, so step 3a below is done.
+
 ---
 
 ## 1. Create the Supabase database
@@ -73,6 +89,8 @@ Open **http://localhost:3000** on your computer. Create a game in one browser wi
 
 ### 3a. Push the code to GitHub
 
+> **Already done** for `ItsAdarsh008/goosehunt`. Later changes only need `git push`, and Vercel redeploys automatically. The steps below are kept for reference.
+
 ```bash
 cd goosehunt
 git add .
@@ -90,6 +108,8 @@ git push -u origin main
 `.env.local` is in `.gitignore`, so your secret key won't be pushed. Run `git status` before committing to double-check.
 
 ### 3b. Import it into Vercel
+
+> The project is already imported on your Vercel account. Skip to step 4 and add the env vars under **Project → Settings → Environment Variables** (tick Production, Preview and Development). Then **Redeploy**, as described in the note below.
 
 1. Go to **https://vercel.com** → sign in with GitHub → **Add New… → Project**.
 2. Find `goosehunt` in the list → **Import**. (If it isn't listed, click **Adjust GitHub App Permissions** and grant access to the repo.)
@@ -139,7 +159,7 @@ The app runs in the browser, so there's nothing to install. Share the game link 
 2. Players join and become hiders by default. The host taps **Hider / Seeker** next to each name to assign roles. The host starts as a seeker and can switch.
 3. Everyone taps **Enable location** in the lobby. The host taps **Start game**.
 4. **Head start:** hiders get one full interval before the first ping.
-5. **Every interval,** all hiders' phones send their location at the same moment. Seekers see orange pulsing pins (the current round), grey pins (older rounds), a dotted trail of the last few pings, and the distance from them to each hider. Android phones vibrate when pings go out or arrive.
+5. **Every interval,** all hiders' phones send their location at the same moment. Seekers see magenta pulsing pins (the current round), grey pins (older rounds), a dotted trail of the last few pings, and the distance from them to each hider. Android phones vibrate when pings go out or arrive.
 6. Seekers tap **Caught** (twice, to confirm) on a hider. Hiders can also tap **I've been caught**.
 7. The game ends when all hiders are caught, time runs out, or the host taps **End game**. After that, everyone sees the results.
 
